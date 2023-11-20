@@ -3,7 +3,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-public class GameWindow extends JFrame{
+public class GameWindow extends JFrame {
     private static final Dimension displaySize = Toolkit.getDefaultToolkit().getScreenSize();
     private static final int WINDOW_HEIGHT = 555;
     private static final int WINDOW_WIDTH = 507;

@@ -6,25 +6,35 @@ import java.util.Random;
 
 public class Map extends JPanel {
     private static final Random RANDOM = new Random();
-    private static final int DOT_PADDING = 5;
+
+    static final int MODE_HUMAN_VS_AI = 0;
+    static final int MODE_HUMAN_VS_HUMAN = 1;
+    private int mode;
+    private int nextMove;
+
+    private static final int DOT_PADDING = 5; // отступ от границ ячейки (в пикселях)
 
     private int gameOverType;
     private static final int STATE_DRAW = 0;
     private static final int STATE_WIN_HUMAN = 1;
     private static final int STATE_WIN_AI = 2;
+    private static final int STATE_WIN_HUMAN2 = 3;
 
     private static final String MSG_DRAW = "Ничья!";
     private static final String MSG_WIN_HUMAN = "Победил игрок!";
     private static final String MSG_WIN_AI = "Победил компьютер!";
+    private static final String MSG_WIN_HUMAN2 = "Победил игрок 2!";
 
     private final int EMPTY_DOT = 0;
     private final int HUMAN_DOT = 1;
     private final int AI_DOT = 2;
-    private int fieldSizeX = 3;
-    private int fieldSizeY = 3;
-    private char[][] field;
-    private int panelWidth;
-    private int panelHeight;
+    private final int HUMAN2_DOT = 3;
+
+    private int fieldSizeX;
+    private int fieldSizeY;
+    private int winLength;
+
+    private int[][] field;
     private int cellHeight;
     private int cellWidth;
 
@@ -35,25 +45,46 @@ public class Map extends JPanel {
         addMouseListener(new MouseAdapter() {
             @Override
             public void mouseReleased(MouseEvent e) {
-                update(e);
+                update(e, ++nextMove);
             }
         });
         isInitialized = false;
     }
 
-    private void update(MouseEvent e) {
-        if (isGameOver || !isInitialized) return;
-        int cellX = e.getX() / cellWidth;
-        int cellY = e.getY() / cellHeight;
-        if (!isValidCell(cellX, cellY) || !isEmptyCell(cellX, cellY)) return;
-        field[cellY][cellX] = HUMAN_DOT;
+    private void update(MouseEvent e, int nextMove) {
+        if (mode == MODE_HUMAN_VS_AI) {
+            if (isGameOver || !isInitialized) return;
+            int cellX = e.getX() / cellWidth;
+            int cellY = e.getY() / cellHeight;
+            if (!isValidCell(cellX, cellY) || !isEmptyCell(cellX, cellY)) return;
+            field[cellY][cellX] = HUMAN_DOT;
 
-        repaint();
+            repaint();
 
-        if (checkEndGame(HUMAN_DOT, STATE_WIN_HUMAN)) return;
-        aiTurn();
-        repaint();
-        if (checkEndGame(AI_DOT, STATE_WIN_AI)) return;
+            if (checkEndGame(HUMAN_DOT, STATE_WIN_HUMAN)) return;
+            aiTurn();
+            repaint();
+            if (checkEndGame(AI_DOT, STATE_WIN_AI)) return;
+        }
+        if (mode == MODE_HUMAN_VS_HUMAN) {
+            if (nextMove % 2 != 0) {
+                if (isGameOver || !isInitialized) return;
+                int cellX = e.getX() / cellWidth;
+                int cellY = e.getY() / cellHeight;
+                if (!isValidCell(cellX, cellY) || !isEmptyCell(cellX, cellY)) return;
+                field[cellY][cellX] = HUMAN_DOT;
+                repaint();
+                if (checkEndGame(HUMAN_DOT, STATE_WIN_HUMAN)) return;
+            } else {
+                if (isGameOver || !isInitialized) return;
+                int cellX = e.getX() / cellWidth;
+                int cellY = e.getY() / cellHeight;
+                if (!isValidCell(cellX, cellY) || !isEmptyCell(cellX, cellY)) return;
+                field[cellY][cellX] = HUMAN2_DOT;
+                repaint();
+                if (checkEndGame(HUMAN2_DOT, STATE_WIN_HUMAN2)) return;
+            }
+        }
     }
 
     private boolean checkEndGame(int dot, int gameOverType) {
@@ -74,6 +105,11 @@ public class Map extends JPanel {
 
     void startNewGame(int mode, int fSzX, int fSzY, int wLen) {
         System.out.printf("Режим: %d;\nРазмер поля: x=%d, y=%d;\nВыигрышная длина: %d\n", mode, fSzX, fSzY, wLen);
+        this.mode = mode;
+        fieldSizeX = fSzX;
+        fieldSizeY = fSzY;
+        this.winLength = wLen;
+        this.nextMove = 0;
         initMap();
         isGameOver = false;
         isInitialized = true;
@@ -104,23 +140,29 @@ public class Map extends JPanel {
                             y * cellHeight + DOT_PADDING,
                             cellWidth - DOT_PADDING * 2,
                             cellHeight - DOT_PADDING * 2);
+                } else if (field[y][x] == HUMAN2_DOT) {
+                    g.setColor(Color.CYAN);
+                    g.fillOval(x * cellWidth + DOT_PADDING,
+                            y * cellHeight + DOT_PADDING,
+                            cellWidth - DOT_PADDING * 2,
+                            cellHeight - DOT_PADDING * 2);
                 } else {
                     throw new RuntimeException("Неожиданное значение " + field[y][x] + " в ячейке: x=" + x + " y=" + y);
                 }
             }
         }
 
-        panelWidth = getWidth();
-        panelHeight = getHeight();
-        cellHeight = panelHeight / 3;
-        cellWidth = panelWidth / 3;
+        int panelWidth = getWidth();
+        int panelHeight = getHeight();
+        cellHeight = panelHeight / fieldSizeY;
+        cellWidth = panelWidth / fieldSizeX;
 
         g.setColor(Color.BLACK);
-        for (int h = 0; h < 3; h++) {
+        for (int h = 0; h < fieldSizeY; h++) {
             int y = h * cellHeight;
             g.drawLine(0, y, panelWidth, y);
         }
-        for (int w = 0; w < 3; w++) {
+        for (int w = 0; w < fieldSizeX; w++) {
             int x = w * cellWidth;
             g.drawLine(x, 0, x, panelHeight);
         }
@@ -136,6 +178,7 @@ public class Map extends JPanel {
             case STATE_DRAW -> g.drawString(MSG_DRAW, 180, getHeight() / 2);
             case STATE_WIN_AI -> g.drawString(MSG_WIN_AI, 20, getHeight() / 2);
             case STATE_WIN_HUMAN -> g.drawString(MSG_WIN_HUMAN, 70, getHeight() / 2);
+            case STATE_WIN_HUMAN2 -> g.drawString(MSG_WIN_HUMAN2, 68, getHeight() / 2);
             default -> throw new RuntimeException("Неожиданное состояние завершения игры: " + gameOverType);
         }
     }
@@ -144,9 +187,7 @@ public class Map extends JPanel {
      * Логика игры в Крестики-Нолики
      */
     private void initMap() {
-        fieldSizeY = 3;
-        fieldSizeX = 3;
-        field = new char[fieldSizeY][fieldSizeX];
+        field = new int[fieldSizeY][fieldSizeX];
         for (int i = 0; i < fieldSizeY; i++) {
             for (int j = 0; j < fieldSizeX; j++) {
                 field[i][j] = EMPTY_DOT;
@@ -162,7 +203,12 @@ public class Map extends JPanel {
         return field[y][x] == EMPTY_DOT;
     }
 
+    /**
+     * Ход компьютера
+     */
     private void aiTurn() {
+        if (turnAIWinCell()) return;
+        if (turnHumanWinCell()) return;
         int x, y;
         do {
             x = RANDOM.nextInt(fieldSizeX);
@@ -171,18 +217,65 @@ public class Map extends JPanel {
         field[y][x] = AI_DOT;
     }
 
-    private boolean checkWin(int c) {              // ТАК ДЕЛАТЬ НЕ НАДО!!!! ЛУЧШЕ ПЕРЕПИСАТЬ И СДЕЛАТЬ ЧЕРЕЗ ЦИКЛЫ!!!
-        if (field[0][0] == c && field[0][1] == c && field[0][2] == c) return true;
-        if (field[1][0] == c && field[1][1] == c && field[1][2] == c) return true;
-        if (field[2][0] == c && field[2][1] == c && field[2][2] == c) return true;
-
-        if (field[0][0] == c && field[1][0] == c && field[2][0] == c) return true;
-        if (field[0][1] == c && field[1][1] == c && field[2][1] == c) return true;
-        if (field[0][2] == c && field[1][2] == c && field[2][2] == c) return true;
-
-        if (field[0][0] == c && field[1][1] == c && field[2][2] == c) return true;
-        if (field[0][2] == c && field[1][1] == c && field[2][0] == c) return true;
+    /**
+     * Проверка возможности компьютера выиграть за один ход.
+     *
+     * @return Eсли может выиграть, сразу делает ход.
+     */
+    private boolean turnAIWinCell() {
+        for (int i = 0; i < fieldSizeY; i++) {
+            for (int j = 0; j < fieldSizeX; j++) {
+                if (isEmptyCell(j, i)) {
+                    field[i][j] = AI_DOT;
+                    if (checkWin(AI_DOT)) return true;
+                    field[i][j] = EMPTY_DOT;
+                }
+            }
+        }
         return false;
+    }
+
+    /**
+     * Проверка возможности человека выиграть за один ход.
+     *
+     * @return Eсли может выиграть, компьютер блокирует эту клетку своим ходом.
+     */
+    private boolean turnHumanWinCell() {
+        for (int i = 0; i < fieldSizeY; i++) {
+            for (int j = 0; j < fieldSizeX; j++) {
+                if (isEmptyCell(j, i)) {
+                    field[i][j] = HUMAN_DOT;
+                    if (checkWin(HUMAN_DOT)) {
+                        field[i][j] = AI_DOT;
+                        return true;
+                    }
+                    field[i][j] = EMPTY_DOT;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean checkWin(int c) {
+        for (int i = 0; i < fieldSizeX; i++) {
+            for (int j = 0; j < fieldSizeY; j++) {
+                if (checkLine(i, j, 1, 0, winLength, c)) return true; // Проверка строки вправо от точки
+                if (checkLine(i, j, 1, 1, winLength, c)) return true; // Проверка диагонали вправо вниз от точки
+                if (checkLine(i, j, 0, 1, winLength, c)) return true; // Проверка столбца вниз от точки
+                if (checkLine(i, j, 1, -1, winLength, c)) return true; // Проверка диагонали вправо вверх от точки
+            }
+        }
+        return false;
+    }
+
+    private boolean checkLine(int x, int y, int vx, int vy, int len, int c) {
+        final int far_x = x + (len - 1) * vx;
+        final int far_y = y + (len - 1) * vy;
+        if (!isValidCell(far_x, far_y)) return false;
+        for (int i = 0; i < len; i++) {
+            if (field[y + i * vy][x + i * vx] != c) return false;
+        }
+        return true;
     }
 
     /**
